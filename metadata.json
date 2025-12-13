@@ -1,0 +1,5 @@
+{
+  "name": "AffiliatePro Store",
+  "description": "Uma loja de afiliados moderna e de alto desempenho com interface premium, filtragem de produtos e painel administrativo para gerenciamento de conteúdo. Construída com React, Tailwind CSS e integração pronta para Supabase.",
+  "requestFramePermissions": []
+}
