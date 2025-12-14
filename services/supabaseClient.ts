@@ -3,6 +3,7 @@ import { Product, SiteSettingsRow, AnalyticsData } from '../types';
 import { Database } from '../supabase.types';
 
 // Try to get env vars from multiple sources
+// Try to get env vars from multiple sources
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || import.meta.env.VITE_NEXT_SUPABASE_URL || process.env.VITE_NEXT_SUPABASE_URL) as string;
 const SUPABASE_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY) as string;
 
@@ -19,10 +20,15 @@ if (!isSupabaseConfigured) {
   console.warn('⚠️ Supabase não está configurado. O aplicativo não funcionará corretamente sem conexão com o banco de dados.');
 }
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_KEY);
+// Export supabase as nullable if not configured to prevent crash
+export const supabase = isSupabaseConfigured
+  ? createClient<Database>(SUPABASE_URL, SUPABASE_KEY)
+  : null as any;
 
 export const ProductService = {
   getAll: async (): Promise<Product[]> => {
+    if (!supabase) return [];
+
     const { data, error } = await supabase
       .from('products')
       .select('*')
@@ -37,6 +43,8 @@ export const ProductService = {
   },
 
   getById: async (id: string): Promise<Product | undefined> => {
+    if (!supabase) return undefined;
+
     const { data, error } = await supabase
       .from('products')
       .select('*')
@@ -52,6 +60,8 @@ export const ProductService = {
   },
 
   create: async (product: Omit<Product, 'id' | 'created_at' | 'updated_at' | 'click_count' | 'view_count' | 'review_count' | 'rating' | 'user_id'>): Promise<Product> => {
+    if (!supabase) throw new Error('Supabase não configurado');
+
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
@@ -82,6 +92,8 @@ export const ProductService = {
   },
 
   update: async (id: string, updates: Partial<Product>): Promise<Product | undefined> => {
+    if (!supabase) throw new Error('Supabase não configurado');
+
     const { data, error } = await supabase
       .from('products')
       .update({ ...updates, updated_at: new Date().toISOString() })
@@ -98,6 +110,8 @@ export const ProductService = {
   },
 
   delete: async (id: string): Promise<void> => {
+    if (!supabase) throw new Error('Supabase não configurado');
+
     const { error } = await supabase
       .from('products')
       .delete()
@@ -112,6 +126,8 @@ export const ProductService = {
 
 export const SettingsService = {
   getSettings: async (): Promise<SiteSettingsRow | null> => {
+    if (!supabase) return null;
+
     const { data, error } = await supabase
       .from('site_settings')
       .select('*')
@@ -128,6 +144,8 @@ export const SettingsService = {
   },
 
   updateSettings: async (settings: Partial<SiteSettingsRow>): Promise<SiteSettingsRow> => {
+    if (!supabase) throw new Error('Supabase não configurado');
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Usuario não autenticado');
 
@@ -162,6 +180,8 @@ export const SettingsService = {
 
 export const AnalyticsService = {
   trackView: async (productId: string) => {
+    if (!supabase) return;
+
     // 1. Increment view_count on products table
     const { error } = await supabase.rpc('increment_view_count', { row_id: productId });
 
@@ -178,6 +198,8 @@ export const AnalyticsService = {
   },
 
   trackClick: async (productId: string) => {
+    if (!supabase) return;
+
     // 1. Increment click_count on products table
     // Try RPC first
     const { error: rpcError } = await supabase.rpc('increment_click_count', { row_id: productId });
