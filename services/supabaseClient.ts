@@ -4,8 +4,23 @@ import { Database } from '../supabase.types';
 
 // Try to get env vars from multiple sources
 // Try to get env vars from multiple sources
-const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || import.meta.env.VITE_NEXT_SUPABASE_URL || process.env.VITE_NEXT_SUPABASE_URL) as string;
-const SUPABASE_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY) as string;
+const SUPABASE_URL = (
+  import.meta.env.VITE_SUPABASE_URL ||
+  process.env.VITE_SUPABASE_URL ||
+  import.meta.env.VITE_NEXT_SUPABASE_URL ||
+  process.env.VITE_NEXT_SUPABASE_URL ||
+  import.meta.env.NEXT_PUBLIC_SUPABASE_URL ||
+  process.env.NEXT_PUBLIC_SUPABASE_URL
+) as string;
+
+const SUPABASE_KEY = (
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  process.env.VITE_SUPABASE_ANON_KEY ||
+  import.meta.env.VITE_NEXT_SUPABASE_ANON_KEY ||
+  process.env.VITE_NEXT_SUPABASE_ANON_KEY ||
+  import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+) as string;
 
 // Debug: Log what we're getting from env
 console.log('🔍 Debug ENV:', {
