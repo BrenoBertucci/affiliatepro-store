@@ -84,7 +84,7 @@ export const ProductService = {
     }
 
     // Only include fields that exist in the database
-    const newProduct = {
+    const newProduct: Record<string, any> = {
       name: product.name,
       price: product.price,
       description: product.description,
