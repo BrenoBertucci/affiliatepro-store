@@ -9,6 +9,7 @@ const Shop: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [sortOption, setSortOption] = useState<string>('newest');
 
   // Filter States
   const [filters, setFilters] = useState<FilterState>({
@@ -39,8 +40,16 @@ const Shop: React.FC = () => {
       const matchesPrice = product.price >= filters.minPrice && product.price <= filters.maxPrice;
 
       return matchesSearch && matchesCategory && matchesPrice;
+    }).sort((a, b) => {
+      switch (sortOption) {
+        case 'price_asc': return a.price - b.price;
+        case 'price_desc': return b.price - a.price;
+        case 'name_asc': return a.name.localeCompare(b.name);
+        case 'name_desc': return b.name.localeCompare(a.name);
+        case 'newest': default: return new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime();
+      }
     });
-  }, [products, filters]);
+  }, [products, filters, sortOption]);
 
   const handleCategoryChange = (cat: string) => {
     setFilters(prev => ({ ...prev, category: cat }));
@@ -67,6 +76,18 @@ const Shop: React.FC = () => {
                   className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg leading-5 bg-gray-50 text-slate-900 placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-all shadow-sm"
                 />
               </div>
+
+              <select
+                value={sortOption}
+                onChange={(e) => setSortOption(e.target.value)}
+                className="hidden md:block pl-3 pr-8 py-2 border border-gray-200 rounded-lg bg-white text-slate-700 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm shadow-sm cursor-pointer"
+              >
+                <option value="newest">Mais Recentes</option>
+                <option value="price_asc">Preço: Menor - Maior</option>
+                <option value="price_desc">Preço: Maior - Menor</option>
+                <option value="name_asc">Nome: A - Z</option>
+                <option value="name_desc">Nome: Z - A</option>
+              </select>
 
               <button
                 className="md:hidden p-2 bg-white border border-gray-200 rounded-lg text-slate-600"

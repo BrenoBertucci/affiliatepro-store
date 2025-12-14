@@ -4,27 +4,46 @@ import { Star, ExternalLink, Share2, ArrowLeft, ShieldCheck, Clock } from 'lucid
 import { ProductService, AnalyticsService } from '../services/supabaseClient';
 import { Product } from '../types';
 import Button from '../components/ui/Button';
+import ProductCard from '../components/Product/ProductCard';
+import { useToast } from '../context/ToastContext';
 
 const ProductDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [product, setProduct] = useState<Product | null>(null);
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const { addToast } = useToast();
 
   useEffect(() => {
+    window.scrollTo(0, 0);
     const fetchProduct = async () => {
       if (!id) return;
       setLoading(true);
       const data = await ProductService.getById(id);
       setProduct(data || null);
-      setLoading(false);
 
-      // Track View
       if (data) {
         AnalyticsService.trackView(id);
+        // Fetch related products
+        const allProducts = await ProductService.getAll();
+        const related = allProducts
+          .filter(p => p.category === data.category && p.id !== data.id)
+          .slice(0, 3);
+        setRelatedProducts(related);
       }
+      setLoading(false);
     };
     fetchProduct();
   }, [id]);
+
+  const handleShare = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      addToast('Link copiado para a área de transferência!', 'success');
+    } catch (err) {
+      addToast('Falha ao copiar link.', 'error');
+    }
+  };
 
   if (loading) return (
     <div className="min-h-screen flex justify-center items-center bg-gray-50">
@@ -73,7 +92,11 @@ const ProductDetail: React.FC = () => {
                     {product.name}
                   </h1>
                 </div>
-                <button className="text-slate-400 hover:text-blue-600 p-2 rounded-full hover:bg-gray-50 transition-colors">
+                <button
+                  onClick={handleShare}
+                  className="text-slate-400 hover:text-blue-600 p-2 rounded-full hover:bg-gray-50 transition-colors"
+                  title="Compartilhar"
+                >
                   <Share2 size={24} />
                 </button>
               </div>
@@ -120,6 +143,18 @@ const ProductDetail: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Related Products */}
+        {relatedProducts.length > 0 && (
+          <div className="mt-16">
+            <h2 className="text-2xl font-bold text-slate-900 mb-6">Produtos Relacionados</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+              {relatedProducts.map(p => (
+                <ProductCard key={p.id} product={p} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
