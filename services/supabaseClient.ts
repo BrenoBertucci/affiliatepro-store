@@ -83,13 +83,16 @@ export const ProductService = {
       throw new Error('Usuário não autenticado');
     }
 
+    // Only include fields that exist in the database
     const newProduct = {
-      ...product,
+      name: product.name,
+      price: product.price,
+      description: product.description,
+      category: product.category,
+      affiliate_platform: product.affiliate_platform,
+      image_url: product.image_url,
+      affiliate_link: product.affiliate_link,
       user_id: user.id,
-      rating: 0,
-      review_count: 0,
-      click_count: 0,
-      view_count: 0,
     };
 
     const { data, error } = await supabase
