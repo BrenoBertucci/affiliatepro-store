@@ -5,12 +5,16 @@ import { Product } from '../types';
 import Button from '../components/ui/Button';
 import { CATEGORIES, PLATFORMS } from '../constants';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { useToast } from '../context/ToastContext';
 
 const Admin: React.FC = () => {
     const [products, setProducts] = useState<Product[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [activeTab, setActiveTab] = useState<'products' | 'analytics'>('products');
+
+    const { addToast } = useToast();
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Form State
     const [formData, setFormData] = useState<Partial<Product>>({
@@ -22,14 +26,25 @@ const Admin: React.FC = () => {
     }, []);
 
     const loadProducts = async () => {
-        const data = await ProductService.getAll();
-        setProducts(data);
+        try {
+            const data = await ProductService.getAll();
+            setProducts(data);
+        } catch (error) {
+            console.error('Falha ao carregar produtos:', error);
+            addToast('Falha ao carregar produtos. Recarregue a página.', 'error');
+        }
     };
 
     const handleDelete = async (id: string) => {
         if (confirm('Tem certeza que deseja excluir este produto?')) {
-            await ProductService.delete(id);
-            loadProducts();
+            try {
+                await ProductService.delete(id);
+                addToast('Produto excluído com sucesso!', 'success');
+                loadProducts();
+            } catch (error) {
+                console.error('Erro ao excluir:', error);
+                addToast('Erro ao excluir produto.', 'error');
+            }
         }
     };
 
@@ -41,15 +56,27 @@ const Admin: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (editingProduct) {
-            await ProductService.update(editingProduct.id, formData);
-        } else {
-            await ProductService.create(formData as any);
+        setIsSubmitting(true);
+
+        try {
+            if (editingProduct) {
+                await ProductService.update(editingProduct.id, formData);
+                addToast('Produto atualizado com sucesso!', 'success');
+            } else {
+                await ProductService.create(formData as any);
+                addToast('Produto criado com sucesso!', 'success');
+            }
+
+            setIsModalOpen(false);
+            setEditingProduct(null);
+            setFormData({ name: '', price: 0, description: '', category: 'Eletrônicos', affiliate_platform: 'Amazon', image_url: '', affiliate_link: '' });
+            loadProducts();
+        } catch (error: any) {
+            console.error('Erro ao salvar produto:', error);
+            addToast(`Erro ao salvar: ${error.message || 'Verifique sua conexão ou permissões'}`, 'error');
+        } finally {
+            setIsSubmitting(false);
         }
-        setIsModalOpen(false);
-        setEditingProduct(null);
-        setFormData({ name: '', price: 0, description: '', category: 'Eletrônicos', affiliate_platform: 'Amazon', image_url: '', affiliate_link: '' });
-        loadProducts();
     };
 
     // Mock analytics data
@@ -211,8 +238,10 @@ const Admin: React.FC = () => {
                                 </div>
                             </div>
                             <div className="flex justify-end space-x-3 pt-4 border-t border-gray-100">
-                                <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
-                                <Button type="submit">Salvar Produto</Button>
+                                <Button type="button" variant="outline" onClick={() => setIsModalOpen(false)} disabled={isSubmitting}>Cancelar</Button>
+                                <Button type="submit" disabled={isSubmitting}>
+                                    {isSubmitting ? 'Salvando...' : 'Salvar Produto'}
+                                </Button>
                             </div>
                         </form>
                     </div>
