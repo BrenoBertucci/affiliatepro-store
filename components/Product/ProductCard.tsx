@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { Star, ExternalLink, Tag } from 'lucide-react';
 import { Product } from '../../types';
@@ -7,7 +7,7 @@ interface ProductCardProps {
   product: Product;
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
+const ProductCard = memo(({ product }: ProductCardProps) => {
   return (
     <div className="group bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300 hover:-translate-y-1">
       <Link to={`/product/${product.id}`} className="block relative overflow-hidden aspect-square bg-gray-50">
@@ -64,6 +64,9 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       </div>
     </div>
   );
-};
+});
 
+ProductCard.displayName = 'ProductCard';
+
+// Optimization: Use memo to prevent re-renders when parent state changes but product data is stable
 export default ProductCard;
