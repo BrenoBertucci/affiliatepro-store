@@ -57,6 +57,26 @@ export const ProductService = {
     return (data || []) as Product[];
   },
 
+  // Optimization: Fetch only featured products with a limit to avoid loading the entire product database
+  // and filtering on the client side. This significantly reduces payload size and processing time.
+  getFeatured: async (limit = 3): Promise<Product[]> => {
+    if (!supabase) return [];
+
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('is_featured', true)
+      .limit(limit)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching featured products:', error);
+      return [];
+    }
+
+    return (data || []) as Product[];
+  },
+
   getById: async (id: string): Promise<Product | undefined> => {
     if (!supabase) return undefined;
 

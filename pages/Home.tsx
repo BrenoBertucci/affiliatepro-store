@@ -11,8 +11,8 @@ const Home: React.FC = () => {
 
   useEffect(() => {
     const loadProducts = async () => {
-      const all = await ProductService.getAll();
-      setFeaturedProducts(all.filter(p => p.is_featured).slice(0, 3));
+      const featured = await ProductService.getFeatured(3);
+      setFeaturedProducts(featured);
       setLoading(false);
     };
     loadProducts();
