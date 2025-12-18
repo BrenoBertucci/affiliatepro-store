@@ -4,6 +4,7 @@ import ProductCard from '../components/Product/ProductCard';
 import { ProductService } from '../services/supabaseClient';
 import { Product, FilterState } from '../types';
 import { CATEGORIES } from '../constants';
+import { useDebounce } from '../hooks/useDebounce';
 
 const Shop: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -18,6 +19,16 @@ const Shop: React.FC = () => {
     maxPrice: 10000,
     search: '',
   });
+
+  // Local search state for immediate input feedback
+  const [searchTerm, setSearchTerm] = useState('');
+  // Debounce search term to avoid excessive filtering on every keystroke
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
+
+  // Sync debounced search term with filters
+  useEffect(() => {
+    setFilters(prev => ({ ...prev, search: debouncedSearchTerm }));
+  }, [debouncedSearchTerm]);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -55,6 +66,13 @@ const Shop: React.FC = () => {
     setFilters(prev => ({ ...prev, category: cat }));
   };
 
+  // Clear all filters including local search term
+  const clearFilters = () => {
+    setFilters({ category: 'Todos', minPrice: 0, maxPrice: 10000, search: '' });
+    setSearchTerm('');
+    setShowMobileFilters(false);
+  };
+
   return (
     <div className="bg-gray-50 min-h-screen pb-20">
       {/* Header */}
@@ -71,8 +89,8 @@ const Shop: React.FC = () => {
                 <input
                   type="text"
                   placeholder="Buscar produtos..."
-                  value={filters.search}
-                  onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg leading-5 bg-gray-50 text-slate-900 placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-all shadow-sm"
                 />
               </div>
@@ -157,10 +175,7 @@ const Shop: React.FC = () => {
 
               <div className="pt-4 border-t border-gray-100">
                 <button
-                  onClick={() => {
-                    setFilters({ category: 'Todos', minPrice: 0, maxPrice: 10000, search: '' });
-                    setShowMobileFilters(false);
-                  }}
+                  onClick={clearFilters}
                   className="text-sm text-slate-500 hover:text-red-500 transition-colors w-full text-left"
                 >
                   Limpar filtros
@@ -191,7 +206,7 @@ const Shop: React.FC = () => {
                 <h3 className="text-lg font-medium text-slate-900">Nenhum produto encontrado</h3>
                 <p className="text-slate-500 mt-1">Tente ajustar sua busca ou filtros.</p>
                 <button
-                  onClick={() => setFilters({ category: 'Todos', minPrice: 0, maxPrice: 10000, search: '' })}
+                  onClick={clearFilters}
                   className="mt-4 text-blue-600 font-medium hover:underline"
                 >
                   Limpar filtros
