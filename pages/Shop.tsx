@@ -4,6 +4,7 @@ import ProductCard from '../components/Product/ProductCard';
 import { ProductService } from '../services/supabaseClient';
 import { Product, FilterState } from '../types';
 import { CATEGORIES } from '../constants';
+import useDebounce from '../hooks/useDebounce';
 
 const Shop: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -19,6 +20,9 @@ const Shop: React.FC = () => {
     search: '',
   });
 
+  // Debounce search term to prevent filtering on every keystroke
+  const debouncedSearch = useDebounce(filters.search, 300);
+
   useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true);
@@ -32,8 +36,8 @@ const Shop: React.FC = () => {
   const filteredProducts = useMemo(() => {
     return products.filter(product => {
       // Search
-      const matchesSearch = product.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-        (product.description || '').toLowerCase().includes(filters.search.toLowerCase());
+      const matchesSearch = product.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        (product.description || '').toLowerCase().includes(debouncedSearch.toLowerCase());
       // Category
       const matchesCategory = filters.category === 'Todos' || product.category === filters.category;
       // Price
@@ -49,7 +53,7 @@ const Shop: React.FC = () => {
         case 'newest': default: return new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime();
       }
     });
-  }, [products, filters, sortOption]);
+  }, [products, filters.category, filters.minPrice, filters.maxPrice, debouncedSearch, sortOption]);
 
   const handleCategoryChange = (cat: string) => {
     setFilters(prev => ({ ...prev, category: cat }));
