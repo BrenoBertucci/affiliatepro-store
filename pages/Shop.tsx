@@ -4,6 +4,7 @@ import ProductCard from '../components/Product/ProductCard';
 import { ProductService } from '../services/supabaseClient';
 import { Product, FilterState } from '../types';
 import { CATEGORIES } from '../constants';
+import { useDebounce } from '../hooks/useDebounce';
 
 const Shop: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -18,6 +19,23 @@ const Shop: React.FC = () => {
     maxPrice: 10000,
     search: '',
   });
+
+  // Local state for immediate input feedback
+  const [localSearch, setLocalSearch] = useState('');
+  const debouncedSearch = useDebounce(localSearch, 300);
+
+  // Sync debounced search with filters
+  useEffect(() => {
+    setFilters(prev => ({ ...prev, search: debouncedSearch }));
+  }, [debouncedSearch]);
+
+  // Sync initial state if needed (though filters.search starts empty)
+  useEffect(() => {
+    // If filters.search is cleared externally (e.g. by reset button), sync localSearch
+    if (filters.search === '' && localSearch !== '') {
+      setLocalSearch('');
+    }
+  }, [filters.search]);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -71,8 +89,8 @@ const Shop: React.FC = () => {
                 <input
                   type="text"
                   placeholder="Buscar produtos..."
-                  value={filters.search}
-                  onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                  value={localSearch}
+                  onChange={(e) => setLocalSearch(e.target.value)}
                   className="block w-full pl-10 pr-3 py-2 border border-gray-200 rounded-lg leading-5 bg-gray-50 text-slate-900 placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-all shadow-sm"
                 />
               </div>
