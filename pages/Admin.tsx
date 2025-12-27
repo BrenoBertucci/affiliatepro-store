@@ -27,7 +27,7 @@ const Admin: React.FC = () => {
 
     const loadProducts = async () => {
         try {
-            const data = await ProductService.getAll();
+            const data = await ProductService.getAllAdmin();
             setProducts(data);
         } catch (error) {
             console.error('Falha ao carregar produtos:', error);

@@ -41,7 +41,25 @@ export const supabase = isSupabaseConfigured
   : null as any;
 
 export const ProductService = {
+  // Optimization: Select only necessary fields for the public shop view to reduce payload size.
   getAll: async (): Promise<Product[]> => {
+    if (!supabase) return [];
+
+    const { data, error } = await supabase
+      .from('products')
+      .select('id, name, price, description, category, image_url, is_featured, created_at, affiliate_platform')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching products:', error);
+      throw error;
+    }
+
+    return (data || []) as Product[];
+  },
+
+  // Admin needs all fields for editing
+  getAllAdmin: async (): Promise<Product[]> => {
     if (!supabase) return [];
 
     const { data, error } = await supabase
@@ -50,7 +68,7 @@ export const ProductService = {
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('Error fetching products:', error);
+      console.error('Error fetching products for admin:', error);
       throw error;
     }
 
