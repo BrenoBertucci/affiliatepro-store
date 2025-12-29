@@ -4,6 +4,7 @@ import ProductCard from '../components/Product/ProductCard';
 import { ProductService } from '../services/supabaseClient';
 import { Product, FilterState } from '../types';
 import { CATEGORIES } from '../constants';
+import { useDebounce } from '../hooks/useDebounce';
 
 const Shop: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -19,37 +20,31 @@ const Shop: React.FC = () => {
     search: '',
   });
 
+  const debouncedSearch = useDebounce(filters.search, 500);
+  const debouncedMinPrice = useDebounce(filters.minPrice, 300);
+  const debouncedMaxPrice = useDebounce(filters.maxPrice, 300);
+
   useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true);
-      const data = await ProductService.getAll();
-      setProducts(data);
-      setLoading(false);
+      try {
+        const data = await ProductService.getAll({
+            category: filters.category || undefined,
+            minPrice: debouncedMinPrice,
+            maxPrice: debouncedMaxPrice,
+            search: debouncedSearch,
+            sort: sortOption
+        });
+        setProducts(data);
+      } catch (error) {
+        console.error("Failed to fetch products", error);
+        setProducts([]);
+      } finally {
+        setLoading(false);
+      }
     };
     fetchProducts();
-  }, []);
-
-  const filteredProducts = useMemo(() => {
-    return products.filter(product => {
-      // Search
-      const matchesSearch = product.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-        (product.description || '').toLowerCase().includes(filters.search.toLowerCase());
-      // Category
-      const matchesCategory = filters.category === 'Todos' || product.category === filters.category;
-      // Price
-      const matchesPrice = product.price >= filters.minPrice && product.price <= filters.maxPrice;
-
-      return matchesSearch && matchesCategory && matchesPrice;
-    }).sort((a, b) => {
-      switch (sortOption) {
-        case 'price_asc': return a.price - b.price;
-        case 'price_desc': return b.price - a.price;
-        case 'name_asc': return a.name.localeCompare(b.name);
-        case 'name_desc': return b.name.localeCompare(a.name);
-        case 'newest': default: return new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime();
-      }
-    });
-  }, [products, filters, sortOption]);
+  }, [filters.category, debouncedMinPrice, debouncedMaxPrice, debouncedSearch, sortOption]);
 
   const handleCategoryChange = (cat: string) => {
     setFilters(prev => ({ ...prev, category: cat }));
@@ -172,16 +167,16 @@ const Shop: React.FC = () => {
           {/* Product Grid */}
           <div className="flex-1">
             <div className="mb-4 text-sm text-slate-500">
-              Mostrando <span className="font-semibold text-slate-900">{filteredProducts.length}</span> resultados
+              Mostrando <span className="font-semibold text-slate-900">{products.length}</span> resultados
             </div>
 
             {loading ? (
               <div className="flex justify-center items-center h-64">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
               </div>
-            ) : filteredProducts.length > 0 ? (
+            ) : products.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
-                {filteredProducts.map((product) => (
+                {products.map((product) => (
                   <ProductCard key={product.id} product={product} />
                 ))}
               </div>
