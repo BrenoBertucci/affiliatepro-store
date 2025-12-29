@@ -29,11 +29,19 @@ export interface AnalyticsData {
   views: number;
 }
 
-export type SortOption = 'newest' | 'price_asc' | 'price_desc' | 'popular';
+export type SortOption = 'newest' | 'price_asc' | 'price_desc' | 'popular' | 'name_asc' | 'name_desc';
 
 export interface FilterState {
   category: string | null;
   minPrice: number;
   maxPrice: number;
   search: string;
+}
+
+export interface ProductFilterOptions {
+  category?: string;
+  minPrice?: number;
+  maxPrice?: number;
+  search?: string;
+  sort?: string;
 }

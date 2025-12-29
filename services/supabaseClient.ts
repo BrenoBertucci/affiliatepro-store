@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Product, SiteSettingsRow, AnalyticsData } from '../types';
+import { Product, SiteSettingsRow, AnalyticsData, ProductFilterOptions } from '../types';
 import { Database } from '../supabase.types';
 
 // Try to get env vars from multiple sources
@@ -41,13 +41,54 @@ export const supabase = isSupabaseConfigured
   : null as any;
 
 export const ProductService = {
-  getAll: async (): Promise<Product[]> => {
+  getAll: async (options: ProductFilterOptions = {}): Promise<Product[]> => {
     if (!supabase) return [];
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('products')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .select('*');
+
+    // Apply filters
+    if (options.category && options.category !== 'Todos') {
+      query = query.eq('category', options.category);
+    }
+
+    if (options.minPrice !== undefined) {
+      query = query.gte('price', options.minPrice);
+    }
+
+    if (options.maxPrice !== undefined) {
+      query = query.lte('price', options.maxPrice);
+    }
+
+    if (options.search) {
+      query = query.or(`name.ilike.%${options.search}%,description.ilike.%${options.search}%`);
+    }
+
+    // Apply sorting
+    if (options.sort) {
+      switch (options.sort) {
+        case 'price_asc':
+          query = query.order('price', { ascending: true });
+          break;
+        case 'price_desc':
+          query = query.order('price', { ascending: false });
+          break;
+        case 'name_asc':
+          query = query.order('name', { ascending: true });
+          break;
+        case 'name_desc':
+          query = query.order('name', { ascending: false });
+          break;
+        case 'newest':
+        default:
+          query = query.order('created_at', { ascending: false });
+      }
+    } else {
+      query = query.order('created_at', { ascending: false });
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('Error fetching products:', error);
@@ -71,6 +112,24 @@ export const ProductService = {
 
     if (error) {
       console.error('Error fetching featured products:', error);
+      return [];
+    }
+
+    return (data || []) as Product[];
+  },
+
+  getRelated: async (category: string, excludeId: string, limit: number = 3): Promise<Product[]> => {
+    if (!supabase) return [];
+
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('category', category)
+      .neq('id', excludeId)
+      .limit(limit);
+
+    if (error) {
+      console.error('Error fetching related products:', error);
       return [];
     }
 
