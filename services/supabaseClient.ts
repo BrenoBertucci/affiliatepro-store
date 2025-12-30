@@ -1,8 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
-import { Product, SiteSettingsRow, AnalyticsData } from '../types';
+import { Product, SiteSettingsRow, AnalyticsData, FilterState } from '../types';
 import { Database } from '../supabase.types';
 
-// Try to get env vars from multiple sources
 // Try to get env vars from multiple sources
 const SUPABASE_URL = (
   import.meta.env.VITE_SUPABASE_URL ||
@@ -40,14 +39,69 @@ export const supabase = isSupabaseConfigured
   ? createClient<Database>(SUPABASE_URL, SUPABASE_KEY)
   : null as any;
 
+interface ProductFilterOptions extends Partial<FilterState> {
+  sort?: string;
+  limit?: number;
+}
+
 export const ProductService = {
-  getAll: async (): Promise<Product[]> => {
+  getAll: async (options?: ProductFilterOptions): Promise<Product[]> => {
     if (!supabase) return [];
 
-    const { data, error } = await supabase
-      .from('products')
-      .select('*')
-      .order('created_at', { ascending: false });
+    let query = supabase.from('products').select('*');
+
+    // Apply filters if provided
+    if (options) {
+      if (options.category && options.category !== 'Todos') {
+        query = query.eq('category', options.category);
+      }
+
+      if (options.minPrice !== undefined) {
+        query = query.gte('price', options.minPrice);
+      }
+
+      if (options.maxPrice !== undefined) {
+        query = query.lte('price', options.maxPrice);
+      }
+
+      if (options.search) {
+        // Using ilike for case-insensitive partial match
+        // Searching in name and description
+        query = query.or(`name.ilike.%${options.search}%,description.ilike.%${options.search}%`);
+      }
+
+      // Sorting
+      if (options.sort) {
+        switch (options.sort) {
+          case 'price_asc':
+            query = query.order('price', { ascending: true });
+            break;
+          case 'price_desc':
+            query = query.order('price', { ascending: false });
+            break;
+          case 'name_asc':
+            query = query.order('name', { ascending: true });
+            break;
+          case 'name_desc':
+            query = query.order('name', { ascending: false });
+            break;
+          case 'newest':
+          default:
+            query = query.order('created_at', { ascending: false });
+            break;
+        }
+      } else {
+        query = query.order('created_at', { ascending: false });
+      }
+
+      if (options.limit) {
+        query = query.limit(options.limit);
+      }
+    } else {
+      query = query.order('created_at', { ascending: false });
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error('Error fetching products:', error);
