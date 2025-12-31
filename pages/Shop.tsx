@@ -4,6 +4,7 @@ import ProductCard from '../components/Product/ProductCard';
 import { ProductService } from '../services/supabaseClient';
 import { Product, FilterState } from '../types';
 import { CATEGORIES } from '../constants';
+import { useDebounce } from '../hooks/useDebounce';
 
 const Shop: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -19,37 +20,40 @@ const Shop: React.FC = () => {
     search: '',
   });
 
+  // Debounce only the search and price to avoid excessive API calls on typing/sliding
+  const debouncedSearch = useDebounce(filters.search, 500);
+  const debouncedMaxPrice = useDebounce(filters.maxPrice, 500);
+
   useEffect(() => {
+    const controller = new AbortController();
+
     const fetchProducts = async () => {
       setLoading(true);
-      const data = await ProductService.getAll();
-      setProducts(data);
-      setLoading(false);
-    };
-    fetchProducts();
-  }, []);
+      try {
+        // Compose filters with debounced values where appropriate
+        const activeFilters = {
+          ...filters,
+          search: debouncedSearch,
+          maxPrice: debouncedMaxPrice
+        };
 
-  const filteredProducts = useMemo(() => {
-    return products.filter(product => {
-      // Search
-      const matchesSearch = product.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-        (product.description || '').toLowerCase().includes(filters.search.toLowerCase());
-      // Category
-      const matchesCategory = filters.category === 'Todos' || product.category === filters.category;
-      // Price
-      const matchesPrice = product.price >= filters.minPrice && product.price <= filters.maxPrice;
-
-      return matchesSearch && matchesCategory && matchesPrice;
-    }).sort((a, b) => {
-      switch (sortOption) {
-        case 'price_asc': return a.price - b.price;
-        case 'price_desc': return b.price - a.price;
-        case 'name_asc': return a.name.localeCompare(b.name);
-        case 'name_desc': return b.name.localeCompare(a.name);
-        case 'newest': default: return new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime();
+        const data = await ProductService.getAllFiltered(activeFilters, sortOption, controller.signal);
+        setProducts(data);
+      } catch (error: any) {
+        if (error.name !== 'AbortError') {
+          console.error('Error loading products:', error);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
-    });
-  }, [products, filters, sortOption]);
+    };
+
+    fetchProducts();
+
+    return () => controller.abort();
+  }, [debouncedSearch, debouncedMaxPrice, filters.category, filters.minPrice, sortOption]);
 
   const handleCategoryChange = (cat: string) => {
     setFilters(prev => ({ ...prev, category: cat }));
@@ -172,16 +176,16 @@ const Shop: React.FC = () => {
           {/* Product Grid */}
           <div className="flex-1">
             <div className="mb-4 text-sm text-slate-500">
-              Mostrando <span className="font-semibold text-slate-900">{filteredProducts.length}</span> resultados
+              Mostrando <span className="font-semibold text-slate-900">{products.length}</span> resultados
             </div>
 
             {loading ? (
               <div className="flex justify-center items-center h-64">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
               </div>
-            ) : filteredProducts.length > 0 ? (
+            ) : products.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
-                {filteredProducts.map((product) => (
+                {products.map((product) => (
                   <ProductCard key={product.id} product={product} />
                 ))}
               </div>
