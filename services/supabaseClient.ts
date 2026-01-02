@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Product, SiteSettingsRow, AnalyticsData } from '../types';
+import { Product, SiteSettingsRow, AnalyticsData, FilterState, SortOption } from '../types';
 import { Database } from '../supabase.types';
 
 // Try to get env vars from multiple sources
@@ -51,6 +51,62 @@ export const ProductService = {
 
     if (error) {
       console.error('Error fetching products:', error);
+      throw error;
+    }
+
+    return (data || []) as Product[];
+  },
+
+  getFiltered: async (filters: FilterState, sortOption: string): Promise<Product[]> => {
+    if (!supabase) return [];
+
+    let query = supabase.from('products').select('*');
+
+    // Apply Search Filter
+    if (filters.search) {
+      // Use ilike for case-insensitive search on name or description
+      // Note: Supabase .or() syntax is specific
+      const searchTerm = filters.search.replace(/,/g, ' '); // simple sanitization
+      query = query.or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`);
+    }
+
+    // Apply Category Filter
+    if (filters.category && filters.category !== 'Todos') {
+      query = query.eq('category', filters.category);
+    }
+
+    // Apply Price Filter
+    if (filters.minPrice > 0) {
+      query = query.gte('price', filters.minPrice);
+    }
+    if (filters.maxPrice < 10000) { // Assuming 10000 is the max slider value
+      query = query.lte('price', filters.maxPrice);
+    }
+
+    // Apply Sorting
+    switch (sortOption) {
+      case 'price_asc':
+        query = query.order('price', { ascending: true });
+        break;
+      case 'price_desc':
+        query = query.order('price', { ascending: false });
+        break;
+      case 'name_asc':
+        query = query.order('name', { ascending: true });
+        break;
+      case 'name_desc':
+        query = query.order('name', { ascending: false });
+        break;
+      case 'newest':
+      default:
+        query = query.order('created_at', { ascending: false });
+        break;
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching filtered products:', error);
       throw error;
     }
 
