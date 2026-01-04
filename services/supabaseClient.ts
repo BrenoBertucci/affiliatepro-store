@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Product, SiteSettingsRow, AnalyticsData } from '../types';
+import { Product, SiteSettingsRow, AnalyticsData, FilterState } from '../types';
 import { Database } from '../supabase.types';
 
 // Try to get env vars from multiple sources
@@ -51,6 +51,68 @@ export const ProductService = {
 
     if (error) {
       console.error('Error fetching products:', error);
+      throw error;
+    }
+
+    return (data || []) as Product[];
+  },
+
+  // Performance: Server-side filtering to avoid fetching all products
+  getFiltered: async (filters: FilterState, sortOption: string = 'newest'): Promise<Product[]> => {
+    if (!supabase) return [];
+
+    let query = supabase.from('products').select('*');
+
+    // Category
+    if (filters.category && filters.category !== 'Todos') {
+      query = query.eq('category', filters.category);
+    }
+
+    // Price
+    if (filters.minPrice > 0) {
+      query = query.gte('price', filters.minPrice);
+    }
+    if (filters.maxPrice < 10000) {
+      query = query.lte('price', filters.maxPrice);
+    }
+
+    // Search (check name and description)
+    if (filters.search) {
+      // Use ilike for case-insensitive search
+      // Note: Supabase's .or() expects a comma-separated string of conditions
+      // To prevent syntax errors with special chars, we just use a basic text search on name or description
+      // But .or() is tricky with syntax. A safer simple approach for now is searching on name
+      // or using the 'ilike' on a specific column.
+      // Let's use simple .ilike on name first for safety, or construct a safer OR query.
+      // "name.ilike.%term%,description.ilike.%term%"
+      const term = `%${filters.search}%`;
+      query = query.or(`name.ilike.${term},description.ilike.${term}`);
+    }
+
+    // Sorting
+    switch (sortOption) {
+      case 'price_asc':
+        query = query.order('price', { ascending: true });
+        break;
+      case 'price_desc':
+        query = query.order('price', { ascending: false });
+        break;
+      case 'name_asc':
+        query = query.order('name', { ascending: true });
+        break;
+      case 'name_desc':
+        query = query.order('name', { ascending: false });
+        break;
+      case 'newest':
+      default:
+        query = query.order('created_at', { ascending: false });
+        break;
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching filtered products:', error);
       throw error;
     }
 
