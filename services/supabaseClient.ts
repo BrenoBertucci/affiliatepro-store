@@ -57,6 +57,61 @@ export const ProductService = {
     return (data || []) as Product[];
   },
 
+  getFiltered: async (filters: { category: string | null; minPrice: number; maxPrice: number; search: string }, sortOption: string): Promise<Product[]> => {
+    if (!supabase) return [];
+
+    let query = supabase.from('products').select('*');
+
+    // Apply filters
+    if (filters.category && filters.category !== 'Todos') {
+      query = query.eq('category', filters.category);
+    }
+
+    if (filters.minPrice > 0) {
+      query = query.gte('price', filters.minPrice);
+    }
+
+    if (filters.maxPrice < 10000) {
+      query = query.lte('price', filters.maxPrice);
+    }
+
+    if (filters.search) {
+      // Use ilike for case-insensitive search on name and description
+      // Note: Sanitize search term to prevent syntax errors with special characters in .or()
+      const searchTerm = filters.search.replace(/[,()]/g, ' ');
+      query = query.or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`);
+    }
+
+    // Apply sorting
+    switch (sortOption) {
+      case 'price_asc':
+        query = query.order('price', { ascending: true });
+        break;
+      case 'price_desc':
+        query = query.order('price', { ascending: false });
+        break;
+      case 'name_asc':
+        query = query.order('name', { ascending: true });
+        break;
+      case 'name_desc':
+        query = query.order('name', { ascending: false });
+        break;
+      case 'newest':
+      default:
+        query = query.order('created_at', { ascending: false });
+        break;
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching filtered products:', error);
+      return [];
+    }
+
+    return (data || []) as Product[];
+  },
+
   // Optimization: Fetch only featured products with a limit to avoid loading the entire product database
   // and filtering on the client side. This significantly reduces payload size and processing time.
   getFeatured: async (limit = 3): Promise<Product[]> => {
