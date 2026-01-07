@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Product, SiteSettingsRow, AnalyticsData } from '../types';
+import { Product, SiteSettingsRow, AnalyticsData, FilterState } from '../types';
 import { Database } from '../supabase.types';
 
 // Try to get env vars from multiple sources
@@ -52,6 +52,64 @@ export const ProductService = {
     if (error) {
       console.error('Error fetching products:', error);
       throw error;
+    }
+
+    return (data || []) as Product[];
+  },
+
+  // Optimization: Fetch filtered products directly from Supabase to avoid fetching all records
+  getFiltered: async (filters: FilterState, sortOption: string): Promise<Product[]> => {
+    if (!supabase) return [];
+
+    let query = supabase.from('products').select('*');
+
+    // Search
+    if (filters.search) {
+      // Sanitize search term to prevent syntax errors with commas in the .or() filter
+      const sanitizedSearch = filters.search.replace(/,/g, ' ');
+      const searchTerm = `%${sanitizedSearch}%`;
+      query = query.or(`name.ilike.${searchTerm},description.ilike.${searchTerm}`);
+    }
+
+    // Category
+    if (filters.category && filters.category !== 'Todos') {
+      query = query.eq('category', filters.category);
+    }
+
+    // Price
+    if (filters.minPrice > 0) {
+      query = query.gte('price', filters.minPrice);
+    }
+
+    if (filters.maxPrice < 10000) {
+      query = query.lte('price', filters.maxPrice);
+    }
+
+    // Sort
+    switch (sortOption) {
+      case 'price_asc':
+        query = query.order('price', { ascending: true });
+        break;
+      case 'price_desc':
+        query = query.order('price', { ascending: false });
+        break;
+      case 'name_asc':
+        query = query.order('name', { ascending: true });
+        break;
+      case 'name_desc':
+        query = query.order('name', { ascending: false });
+        break;
+      case 'newest':
+      default:
+        query = query.order('created_at', { ascending: false });
+        break;
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching filtered products:', error);
+      return [];
     }
 
     return (data || []) as Product[];
