@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Product, SiteSettingsRow, AnalyticsData } from '../types';
+import { Product, SiteSettingsRow, AnalyticsData, FilterState } from '../types';
 import { Database } from '../supabase.types';
 
 // Try to get env vars from multiple sources
@@ -57,6 +57,65 @@ export const ProductService = {
     return (data || []) as Product[];
   },
 
+  // Optimized method for server-side filtering
+  getFiltered: async (filters: FilterState, sortOption: string): Promise<Product[]> => {
+    if (!supabase) return [];
+
+    let query = supabase.from('products').select('*');
+
+    // Apply filters
+    if (filters.search) {
+      // Clean search term to avoid syntax errors with plainto_tsquery or ilike
+      // Using ilike for simpler partial matching across name and description
+      // Note: .or() expects a comma-separated list of conditions
+      const sanitizedSearch = filters.search.replace(/,/g, ' ');
+      const searchTerm = `%${sanitizedSearch}%`;
+      query = query.or(`name.ilike.${searchTerm},description.ilike.${searchTerm}`);
+    }
+
+    if (filters.category && filters.category !== 'Todos') {
+      query = query.eq('category', filters.category);
+    }
+
+    if (filters.minPrice > 0) {
+      query = query.gte('price', filters.minPrice);
+    }
+
+    if (filters.maxPrice < 10000) {
+      query = query.lte('price', filters.maxPrice);
+    }
+
+    // Apply sorting
+    switch (sortOption) {
+      case 'price_asc':
+        query = query.order('price', { ascending: true });
+        break;
+      case 'price_desc':
+        query = query.order('price', { ascending: false });
+        break;
+      case 'name_asc':
+        query = query.order('name', { ascending: true });
+        break;
+      case 'name_desc':
+        query = query.order('name', { ascending: false });
+        break;
+      case 'newest':
+      default:
+        query = query.order('created_at', { ascending: false });
+        break;
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching filtered products:', error);
+      // Fallback to empty list or handle error appropriately
+      return [];
+    }
+
+    return (data || []) as Product[];
+  },
+
   // Optimization: Fetch only featured products with a limit to avoid loading the entire product database
   // and filtering on the client side. This significantly reduces payload size and processing time.
   getFeatured: async (limit = 3): Promise<Product[]> => {
@@ -92,6 +151,24 @@ export const ProductService = {
     }
 
     return data as Product;
+  },
+
+  getRelated: async (category: string, excludeId: string, limit = 3): Promise<Product[]> => {
+    if (!supabase) return [];
+
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('category', category)
+      .neq('id', excludeId)
+      .limit(limit);
+
+    if (error) {
+      console.error('Error fetching related products:', error);
+      return [];
+    }
+
+    return (data || []) as Product[];
   },
 
   create: async (product: Omit<Product, 'id' | 'created_at' | 'updated_at' | 'click_count' | 'view_count' | 'review_count' | 'rating' | 'user_id'>): Promise<Product> => {
