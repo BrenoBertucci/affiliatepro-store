@@ -57,6 +57,33 @@ export const ProductService = {
     return (data || []) as Product[];
   },
 
+  // Optimization: Fetch related products directly from the database instead of filtering all products on the client
+  getRelated: async (category: string | null, excludeId: string, limit = 3): Promise<Product[]> => {
+    if (!supabase) return [];
+
+    let query = supabase
+      .from('products')
+      .select('*')
+      .neq('id', excludeId)
+      .limit(limit)
+      .order('created_at', { ascending: false });
+
+    if (category) {
+      query = query.eq('category', category);
+    } else {
+      query = query.is('category', null);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching related products:', error);
+      return [];
+    }
+
+    return (data || []) as Product[];
+  },
+
   // Optimization: Fetch only featured products with a limit to avoid loading the entire product database
   // and filtering on the client side. This significantly reduces payload size and processing time.
   getFeatured: async (limit = 3): Promise<Product[]> => {
