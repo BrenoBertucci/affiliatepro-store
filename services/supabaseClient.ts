@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { Product, SiteSettingsRow, AnalyticsData } from '../types';
+import { Product, SiteSettingsRow, AnalyticsData, FilterState } from '../types';
 import { Database } from '../supabase.types';
 
 // Try to get env vars from multiple sources
@@ -51,6 +51,63 @@ export const ProductService = {
 
     if (error) {
       console.error('Error fetching products:', error);
+      throw error;
+    }
+
+    return (data || []) as Product[];
+  },
+
+  // Optimization: Perform filtering on the server side to reduce data transfer
+  getFiltered: async (filters: FilterState, sortOption: string): Promise<Product[]> => {
+    if (!supabase) return [];
+
+    let query = supabase
+      .from('products')
+      .select('*');
+
+    // Apply category filter
+    if (filters.category && filters.category !== 'Todos') {
+      query = query.eq('category', filters.category);
+    }
+
+    // Apply price range
+    if (filters.minPrice > 0) {
+      query = query.gte('price', filters.minPrice);
+    }
+    if (filters.maxPrice < 10000) {
+      query = query.lte('price', filters.maxPrice);
+    }
+
+    // Apply search (simple ILIKE on name or description)
+    if (filters.search) {
+      const searchTerm = `%${filters.search}%`;
+      query = query.or(`name.ilike.${searchTerm},description.ilike.${searchTerm}`);
+    }
+
+    // Apply sorting
+    switch (sortOption) {
+      case 'price_asc':
+        query = query.order('price', { ascending: true });
+        break;
+      case 'price_desc':
+        query = query.order('price', { ascending: false });
+        break;
+      case 'name_asc':
+        query = query.order('name', { ascending: true });
+        break;
+      case 'name_desc':
+        query = query.order('name', { ascending: false });
+        break;
+      case 'newest':
+      default:
+        query = query.order('created_at', { ascending: false });
+        break;
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching filtered products:', error);
       throw error;
     }
 
