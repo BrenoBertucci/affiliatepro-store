@@ -1,9 +1,10 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Search, Filter, SlidersHorizontal, X } from 'lucide-react';
 import ProductCard from '../components/Product/ProductCard';
 import { ProductService } from '../services/supabaseClient';
 import { Product, FilterState } from '../types';
 import { CATEGORIES } from '../constants';
+import { useDebounce } from '../hooks/useDebounce';
 
 const Shop: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -19,37 +20,37 @@ const Shop: React.FC = () => {
     search: '',
   });
 
+  const debouncedSearch = useDebounce(filters.search, 500);
+  const debouncedMaxPrice = useDebounce(filters.maxPrice, 500);
+
   useEffect(() => {
+    let ignore = false;
+
     const fetchProducts = async () => {
       setLoading(true);
-      const data = await ProductService.getAll();
-      setProducts(data);
-      setLoading(false);
-    };
-    fetchProducts();
-  }, []);
 
-  const filteredProducts = useMemo(() => {
-    return products.filter(product => {
-      // Search
-      const matchesSearch = product.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-        (product.description || '').toLowerCase().includes(filters.search.toLowerCase());
-      // Category
-      const matchesCategory = filters.category === 'Todos' || product.category === filters.category;
-      // Price
-      const matchesPrice = product.price >= filters.minPrice && product.price <= filters.maxPrice;
+      const effectiveFilters = {
+        ...filters,
+        search: debouncedSearch,
+        maxPrice: debouncedMaxPrice
+      };
 
-      return matchesSearch && matchesCategory && matchesPrice;
-    }).sort((a, b) => {
-      switch (sortOption) {
-        case 'price_asc': return a.price - b.price;
-        case 'price_desc': return b.price - a.price;
-        case 'name_asc': return a.name.localeCompare(b.name);
-        case 'name_desc': return b.name.localeCompare(a.name);
-        case 'newest': default: return new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime();
+      const data = await ProductService.getFiltered(effectiveFilters, sortOption);
+
+      if (!ignore) {
+        setProducts(data);
+        setLoading(false);
       }
-    });
-  }, [products, filters, sortOption]);
+    };
+
+    fetchProducts();
+
+    return () => {
+      ignore = true;
+    };
+  }, [debouncedSearch, debouncedMaxPrice, filters.category, filters.minPrice, sortOption]);
+
+  const filteredProducts = products;
 
   const handleCategoryChange = (cat: string) => {
     setFilters(prev => ({ ...prev, category: cat }));
