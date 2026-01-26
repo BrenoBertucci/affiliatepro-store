@@ -4,6 +4,7 @@ import ProductCard from '../components/Product/ProductCard';
 import { ProductService } from '../services/supabaseClient';
 import { Product, FilterState } from '../types';
 import { CATEGORIES } from '../constants';
+import { useDebounce } from '../hooks/useDebounce';
 
 const Shop: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -19,37 +20,24 @@ const Shop: React.FC = () => {
     search: '',
   });
 
+  const debouncedFilters = useDebounce(filters, 500);
+
   useEffect(() => {
+    let ignore = false;
     const fetchProducts = async () => {
       setLoading(true);
-      const data = await ProductService.getAll();
-      setProducts(data);
-      setLoading(false);
+      const data = await ProductService.getFiltered(debouncedFilters, sortOption);
+      if (!ignore) {
+        setProducts(data);
+        setLoading(false);
+      }
     };
     fetchProducts();
-  }, []);
+    return () => { ignore = true; };
+  }, [debouncedFilters, sortOption]);
 
-  const filteredProducts = useMemo(() => {
-    return products.filter(product => {
-      // Search
-      const matchesSearch = product.name.toLowerCase().includes(filters.search.toLowerCase()) ||
-        (product.description || '').toLowerCase().includes(filters.search.toLowerCase());
-      // Category
-      const matchesCategory = filters.category === 'Todos' || product.category === filters.category;
-      // Price
-      const matchesPrice = product.price >= filters.minPrice && product.price <= filters.maxPrice;
-
-      return matchesSearch && matchesCategory && matchesPrice;
-    }).sort((a, b) => {
-      switch (sortOption) {
-        case 'price_asc': return a.price - b.price;
-        case 'price_desc': return b.price - a.price;
-        case 'name_asc': return a.name.localeCompare(b.name);
-        case 'name_desc': return b.name.localeCompare(a.name);
-        case 'newest': default: return new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime();
-      }
-    });
-  }, [products, filters, sortOption]);
+  // Use local state directly as filtering is done server-side
+  const filteredProducts = products;
 
   const handleCategoryChange = (cat: string) => {
     setFilters(prev => ({ ...prev, category: cat }));
