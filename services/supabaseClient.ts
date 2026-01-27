@@ -94,6 +94,25 @@ export const ProductService = {
     return data as Product;
   },
 
+  getRelated: async (category: string, excludeId: string, limit = 3): Promise<Product[]> => {
+    if (!supabase) return [];
+
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('category', category)
+      .neq('id', excludeId)
+      .limit(limit)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching related products:', error);
+      return [];
+    }
+
+    return (data || []) as Product[];
+  },
+
   create: async (product: Omit<Product, 'id' | 'created_at' | 'updated_at' | 'click_count' | 'view_count' | 'review_count' | 'rating' | 'user_id'>): Promise<Product> => {
     if (!supabase) throw new Error('Supabase não configurado');
 
