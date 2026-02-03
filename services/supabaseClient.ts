@@ -57,6 +57,27 @@ export const ProductService = {
     return (data || []) as Product[];
   },
 
+  // Optimization: Fetch only related products (same category, different ID) with a limit.
+  // This avoids loading the entire database to find 3 items.
+  getRelated: async (category: string, excludeId: string, limit = 3): Promise<Product[]> => {
+    if (!supabase) return [];
+
+    const { data, error } = await supabase
+      .from('products')
+      .select('*')
+      .eq('category', category)
+      .neq('id', excludeId)
+      .limit(limit)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching related products:', error);
+      return [];
+    }
+
+    return (data || []) as Product[];
+  },
+
   // Optimization: Fetch only featured products with a limit to avoid loading the entire product database
   // and filtering on the client side. This significantly reduces payload size and processing time.
   getFeatured: async (limit = 3): Promise<Product[]> => {

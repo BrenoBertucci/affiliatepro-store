@@ -25,10 +25,7 @@ const ProductDetail: React.FC = () => {
       if (data) {
         AnalyticsService.trackView(id);
         // Fetch related products
-        const allProducts = await ProductService.getAll();
-        const related = allProducts
-          .filter(p => p.category === data.category && p.id !== data.id)
-          .slice(0, 3);
+        const related = await ProductService.getRelated(data.category, data.id, 3);
         setRelatedProducts(related);
       }
       setLoading(false);
